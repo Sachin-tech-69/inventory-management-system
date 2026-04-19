@@ -1,0 +1,78 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8"><meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Dashboard – InvenTrack</title>
+  <link rel="stylesheet" href="/css/style.css">
+</head>
+<body>
+  <div id="sidebar" class="sidebar"></div>
+  <div class="main">
+    <div class="topbar">
+      <h2 id="topbar-title">Dashboard</h2>
+      <div class="topbar-actions">
+        <span id="low-stock-badge" style="display:none;background:rgba(245,166,35,0.15);color:#f5a623;padding:5px 12px;border-radius:20px;font-size:12px;"></span>
+      </div>
+    </div>
+    <div class="content" id="content">
+      <div class="stats-grid" id="stats-grid"></div>
+      <div class="grid-2">
+        <div class="card" id="low-stock-card">
+          <div class="card-header"><h3>⚠️ Low Stock Alerts</h3></div>
+          <table><thead><tr><th>Product</th><th>Category</th><th>Qty</th><th>Min</th></tr></thead>
+          <tbody id="low-stock-table"></tbody></table>
+        </div>
+        <div class="card" id="recent-card">
+          <div class="card-header"><h3>🕐 Recent Movements</h3></div>
+          <table><thead><tr><th>Product</th><th>Type</th><th>Qty</th><th>By</th></tr></thead>
+          <tbody id="recent-table"></tbody></table>
+        </div>
+      </div>
+    </div>
+  </div>
+  <script src="/js/app.js"></script>
+  <script>
+    const statColors = ['var(--accent)', 'var(--orange)', 'var(--green)', 'var(--accent2)'];
+    const statLabels = ['Total Products', 'Low Stock Items', 'Categories', 'Suppliers'];
+    const statIcons = ['📦','⚠️','🏷️','🏭'];
+
+    async function init() {
+      await renderLayout('Dashboard', '/dashboard');
+      const d = await fetch('/api/dashboard').then(r => r.json());
+
+      const vals = [d.totalProducts, d.lowStock, d.totalCategories, d.totalSuppliers];
+      document.getElementById('stats-grid').innerHTML = vals.map((v, i) => `
+        <div class="stat-card" style="--accent-color:${statColors[i]}">
+          <div class="label">${statIcons[i]} ${statLabels[i]}</div>
+          <div class="value">${v}</div>
+        </div>
+      `).join('');
+
+      if (d.lowStock > 0) {
+        const b = document.getElementById('low-stock-badge');
+        b.style.display = 'inline';
+        b.textContent = `⚠️ ${d.lowStock} Low Stock`;
+      }
+
+      document.getElementById('low-stock-table').innerHTML = d.lowStockItems.length
+        ? d.lowStockItems.map(p => `<tr>
+            <td>${p.name}</td>
+            <td>${p.category_name || '—'}</td>
+            <td style="color:var(--orange);font-weight:700">${p.quantity}</td>
+            <td>${p.min_stock}</td>
+          </tr>`).join('')
+        : '<tr><td colspan="4" style="text-align:center;color:var(--text-muted);padding:24px">✅ All stock levels OK</td></tr>';
+
+      document.getElementById('recent-table').innerHTML = d.recentMovements.length
+        ? d.recentMovements.map(m => `<tr>
+            <td>${m.product_name}</td>
+            <td><span class="badge badge-${m.type}">${m.type.toUpperCase()}</span></td>
+            <td>${m.quantity}</td>
+            <td>${m.user_name}</td>
+          </tr>`).join('')
+        : '<tr><td colspan="4" style="text-align:center;color:var(--text-muted);padding:24px">No movements yet</td></tr>';
+    }
+    init();
+  </script>
+</body>
+</html>

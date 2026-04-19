@@ -1,0 +1,78 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8"><meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Categories – InvenTrack</title>
+  <link rel="stylesheet" href="/css/style.css">
+</head>
+<body>
+  <div id="sidebar" class="sidebar"></div>
+  <div class="main">
+    <div class="topbar">
+      <h2 id="topbar-title">Categories</h2>
+      <div class="topbar-actions">
+        <button class="btn btn-primary" onclick="openModal('addModal')">+ Add Category</button>
+      </div>
+    </div>
+    <div class="content">
+      <div class="card">
+        <table>
+          <thead><tr><th>#</th><th>Category Name</th><th>Description</th><th>Created</th><th>Action</th></tr></thead>
+          <tbody id="tbl"></tbody>
+        </table>
+      </div>
+    </div>
+  </div>
+
+  <div class="modal-overlay" id="addModal">
+    <div class="modal">
+      <h3>Add Category</h3>
+      <div class="form-group"><label>Category Name *</label><input id="f-name" placeholder="e.g. Electronics"></div>
+      <div class="form-group"><label>Description</label><textarea id="f-desc" rows="3" placeholder="Optional description..."></textarea></div>
+      <div class="modal-actions">
+        <button class="btn btn-ghost" onclick="closeModal('addModal')">Cancel</button>
+        <button class="btn btn-primary" onclick="save()">Add Category</button>
+      </div>
+    </div>
+  </div>
+
+  <script src="/js/app.js"></script>
+  <script>
+    let categories = [];
+    async function init() {
+      await renderLayout('Categories', '/categories');
+      categories = await fetch('/api/categories').then(r => r.json());
+      render();
+    }
+    function render() {
+      const tb = document.getElementById('tbl');
+      if (!categories.length) { tb.innerHTML = '<tr><td colspan="5" style="text-align:center;color:var(--text-muted);padding:40px">No categories yet.</td></tr>'; return; }
+      tb.innerHTML = categories.map((c, i) => `
+        <tr>
+          <td style="color:var(--text-muted)">${i+1}</td>
+          <td style="font-weight:600">${c.name}</td>
+          <td style="color:var(--text-muted)">${c.description || '—'}</td>
+          <td style="color:var(--text-muted);font-size:12px">${formatDate(c.created_at)}</td>
+          <td><button class="btn btn-danger btn-sm" onclick="del(${c.id})">🗑️ Delete</button></td>
+        </tr>`).join('');
+    }
+    async function save() {
+      const name = document.getElementById('f-name').value.trim();
+      const description = document.getElementById('f-desc').value;
+      if (!name) return alert('Category name is required!');
+      const res = await fetch('/api/categories', { method: 'POST', headers: {'Content-Type':'application/json'}, body: JSON.stringify({ name, description }) });
+      const data = await res.json();
+      if (data.success) { closeModal('addModal'); document.getElementById('f-name').value=''; document.getElementById('f-desc').value=''; init(); }
+      else alert(data.message);
+    }
+    async function del(id) {
+      if (!confirm('Delete this category?')) return;
+      const res = await fetch(`/api/categories/${id}`, { method: 'DELETE' });
+      const data = await res.json();
+      if (data.success) init(); else alert(data.message);
+    }
+    document.getElementById('addModal').addEventListener('click', e => { if (e.target === document.getElementById('addModal')) closeModal('addModal'); });
+    init();
+  </script>
+</body>
+</html>

@@ -1,0 +1,62 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8"><meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Stock Movements – InvenTrack</title>
+  <link rel="stylesheet" href="/css/style.css">
+</head>
+<body>
+  <div id="sidebar" class="sidebar"></div>
+  <div class="main">
+    <div class="topbar">
+      <h2 id="topbar-title">Stock Movements</h2>
+      <div class="topbar-actions">
+        <select id="filter-type" onchange="filterMovements()" class="search-bar" style="width:140px">
+          <option value="">All Types</option>
+          <option value="in">Stock In</option>
+          <option value="out">Stock Out</option>
+        </select>
+        <input class="search-bar" id="search" placeholder="🔍  Search product..." oninput="filterMovements()">
+      </div>
+    </div>
+    <div class="content">
+      <div class="card">
+        <table>
+          <thead><tr><th>#</th><th>Date & Time</th><th>Product</th><th>Type</th><th>Quantity</th><th>Note</th><th>By</th></tr></thead>
+          <tbody id="tbl"></tbody>
+        </table>
+      </div>
+    </div>
+  </div>
+
+  <script src="/js/app.js"></script>
+  <script>
+    let all = [];
+    async function init() {
+      await renderLayout('Stock Movements', '/movements');
+      all = await fetch('/api/movements').then(r => r.json());
+      renderTable(all);
+    }
+    function renderTable(data) {
+      const tb = document.getElementById('tbl');
+      if (!data.length) { tb.innerHTML = '<tr><td colspan="7" style="text-align:center;color:var(--text-muted);padding:40px">No movements recorded yet.</td></tr>'; return; }
+      tb.innerHTML = data.map((m, i) => `
+        <tr>
+          <td style="color:var(--text-muted)">${i+1}</td>
+          <td style="font-size:12px;color:var(--text-muted)">${formatDate(m.created_at)}</td>
+          <td style="font-weight:500">${m.product_name}</td>
+          <td><span class="badge badge-${m.type}">${m.type === 'in' ? '📥 Stock In' : '📤 Stock Out'}</span></td>
+          <td style="font-weight:700;color:${m.type==='in'?'var(--green)':'var(--red)'}">${m.type==='in'?'+':'−'}${m.quantity}</td>
+          <td style="color:var(--text-muted);font-size:12px">${m.note || '—'}</td>
+          <td style="font-size:12px">${m.user_name}</td>
+        </tr>`).join('');
+    }
+    function filterMovements() {
+      const q = document.getElementById('search').value.toLowerCase();
+      const t = document.getElementById('filter-type').value;
+      renderTable(all.filter(m => (!t || m.type === t) && (!q || m.product_name.toLowerCase().includes(q))));
+    }
+    init();
+  </script>
+</body>
+</html>

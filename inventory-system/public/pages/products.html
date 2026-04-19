@@ -1,0 +1,208 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8"><meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Products – InvenTrack</title>
+  <link rel="stylesheet" href="/css/style.css">
+</head>
+<body>
+  <div id="sidebar" class="sidebar"></div>
+  <div class="main">
+    <div class="topbar">
+      <h2 id="topbar-title">Products</h2>
+      <div class="topbar-actions">
+        <input class="search-bar" id="search" placeholder="🔍  Search products..." oninput="filterTable()">
+        <button class="btn btn-primary" onclick="openModal('addModal')">+ Add Product</button>
+      </div>
+    </div>
+    <div class="content">
+      <div class="card">
+        <table>
+          <thead><tr><th>SKU</th><th>Name</th><th>Category</th><th>Supplier</th><th>Qty</th><th>Min Stock</th><th>Price</th><th>Status</th><th>Actions</th></tr></thead>
+          <tbody id="tbl"></tbody>
+        </table>
+      </div>
+    </div>
+  </div>
+
+  <!-- Add/Edit Modal -->
+  <div class="modal-overlay" id="addModal">
+    <div class="modal">
+      <h3 id="modal-title">Add Product</h3>
+      <input type="hidden" id="edit-id">
+      <div class="form-row">
+        <div class="form-group"><label>Product Name *</label><input id="f-name" placeholder="e.g. Laptop Dell XPS"></div>
+        <div class="form-group"><label>SKU *</label><input id="f-sku" placeholder="e.g. LPT-001"></div>
+      </div>
+      <div class="form-row">
+        <div class="form-group"><label>Category</label><select id="f-cat"><option value="">-- Select --</option></select></div>
+        <div class="form-group"><label>Supplier</label><select id="f-sup"><option value="">-- Select --</option></select></div>
+      </div>
+      <div class="form-row">
+        <div class="form-group"><label>Initial Qty</label><input id="f-qty" type="number" placeholder="0"></div>
+        <div class="form-group"><label>Min Stock Level</label><input id="f-min" type="number" placeholder="10"></div>
+      </div>
+      <div class="form-row">
+        <div class="form-group"><label>Price (₹)</label><input id="f-price" type="number" placeholder="0.00"></div>
+        <div class="form-group"><label>Unit</label><input id="f-unit" placeholder="pcs / kg / box"></div>
+      </div>
+      <div class="form-group"><label>Description</label><textarea id="f-desc" rows="2" placeholder="Optional..."></textarea></div>
+      <div class="modal-actions">
+        <button class="btn btn-ghost" onclick="closeModal('addModal')">Cancel</button>
+        <button class="btn btn-primary" onclick="saveProduct()">Save Product</button>
+      </div>
+    </div>
+  </div>
+
+  <!-- Stock Modal -->
+  <div class="modal-overlay" id="stockModal">
+    <div class="modal">
+      <h3 id="stock-modal-title">Update Stock</h3>
+      <input type="hidden" id="stock-product-id">
+      <div class="form-group">
+        <label>Type</label>
+        <select id="s-type">
+          <option value="in">📥 Stock In (Add)</option>
+          <option value="out">📤 Stock Out (Remove)</option>
+        </select>
+      </div>
+      <div class="form-group"><label>Quantity *</label><input id="s-qty" type="number" placeholder="Enter quantity" min="1"></div>
+      <div class="form-group"><label>Note</label><input id="s-note" placeholder="e.g. Purchase from supplier / Sale to customer"></div>
+      <div class="modal-actions">
+        <button class="btn btn-ghost" onclick="closeModal('stockModal')">Cancel</button>
+        <button class="btn btn-success" onclick="updateStock()">Update Stock</button>
+      </div>
+    </div>
+  </div>
+
+  <script src="/js/app.js"></script>
+  <script>
+    let products = [], categories = [], suppliers = [];
+
+    async function init() {
+      await renderLayout('Products', '/products');
+      [products, categories, suppliers] = await Promise.all([
+        fetch('/api/products').then(r => r.json()),
+        fetch('/api/categories').then(r => r.json()),
+        fetch('/api/suppliers').then(r => r.json())
+      ]);
+      populateSelects();
+      renderTable(products);
+    }
+
+    function populateSelects() {
+      ['f-cat', 'f-sup'].forEach((id, i) => {
+        const list = i === 0 ? categories : suppliers;
+        const el = document.getElementById(id);
+        el.innerHTML = '<option value="">-- Select --</option>' + list.map(x => `<option value="${x.id}">${x.name}</option>`).join('');
+      });
+    }
+
+    function renderTable(data) {
+      const tb = document.getElementById('tbl');
+      if (!data.length) { tb.innerHTML = '<tr><td colspan="9" style="text-align:center;color:var(--text-muted);padding:40px">No products found. Add your first product!</td></tr>'; return; }
+      tb.innerHTML = data.map(p => `
+        <tr>
+          <td style="font-family:monospace;font-size:12px;color:var(--text-muted)">${p.sku}</td>
+          <td style="font-weight:500">${p.name}</td>
+          <td>${p.category_name || '—'}</td>
+          <td>${p.supplier_name || '—'}</td>
+          <td style="font-weight:700;color:${p.quantity <= p.min_stock ? 'var(--orange)' : 'var(--green)'}">${p.quantity} ${p.unit}</td>
+          <td>${p.min_stock}</td>
+          <td>₹${Number(p.price).toLocaleString()}</td>
+          <td><span class="badge ${p.quantity <= p.min_stock ? 'badge-low' : 'badge-ok'}">${p.quantity <= p.min_stock ? 'Low Stock' : 'In Stock'}</span></td>
+          <td style="display:flex;gap:6px">
+            <button class="btn btn-success btn-sm" onclick="openStock(${p.id}, '${p.name.replace(/'/g,'')}')">📦</button>
+            <button class="btn btn-ghost btn-sm" onclick="editProduct(${p.id})">✏️</button>
+            <button class="btn btn-danger btn-sm" onclick="deleteProduct(${p.id})">🗑️</button>
+          </td>
+        </tr>`).join('');
+    }
+
+    function filterTable() {
+      const q = document.getElementById('search').value.toLowerCase();
+      renderTable(products.filter(p => p.name.toLowerCase().includes(q) || p.sku.toLowerCase().includes(q) || (p.category_name||'').toLowerCase().includes(q)));
+    }
+
+    async function saveProduct() {
+      const id = document.getElementById('edit-id').value;
+      const body = {
+        name: document.getElementById('f-name').value,
+        sku: document.getElementById('f-sku').value,
+        category_id: document.getElementById('f-cat').value,
+        supplier_id: document.getElementById('f-sup').value,
+        quantity: document.getElementById('f-qty').value || 0,
+        min_stock: document.getElementById('f-min').value || 10,
+        price: document.getElementById('f-price').value || 0,
+        unit: document.getElementById('f-unit').value || 'pcs',
+        description: document.getElementById('f-desc').value
+      };
+      if (!body.name || !body.sku) return alert('Name and SKU are required!');
+      const url = id ? `/api/products/${id}` : '/api/products';
+      const method = id ? 'PUT' : 'POST';
+      const res = await fetch(url, { method, headers: {'Content-Type':'application/json'}, body: JSON.stringify(body) });
+      const data = await res.json();
+      if (data.success) { closeModal('addModal'); init(); }
+      else alert(data.message);
+    }
+
+    function editProduct(id) {
+      const p = products.find(x => x.id === id);
+      document.getElementById('edit-id').value = p.id;
+      document.getElementById('f-name').value = p.name;
+      document.getElementById('f-sku').value = p.sku;
+      document.getElementById('f-cat').value = p.category_id || '';
+      document.getElementById('f-sup').value = p.supplier_id || '';
+      document.getElementById('f-qty').value = p.quantity;
+      document.getElementById('f-min').value = p.min_stock;
+      document.getElementById('f-price').value = p.price;
+      document.getElementById('f-unit').value = p.unit;
+      document.getElementById('f-desc').value = p.description || '';
+      document.getElementById('modal-title').textContent = 'Edit Product';
+      openModal('addModal');
+    }
+
+    async function deleteProduct(id) {
+      if (!confirm('Delete this product?')) return;
+      const res = await fetch(`/api/products/${id}`, { method: 'DELETE' });
+      const data = await res.json();
+      if (data.success) init(); else alert(data.message);
+    }
+
+    function openStock(id, name) {
+      document.getElementById('stock-product-id').value = id;
+      document.getElementById('stock-modal-title').textContent = `Update Stock – ${name}`;
+      document.getElementById('s-qty').value = '';
+      document.getElementById('s-note').value = '';
+      openModal('stockModal');
+    }
+
+    async function updateStock() {
+      const id = document.getElementById('stock-product-id').value;
+      const body = { type: document.getElementById('s-type').value, quantity: document.getElementById('s-qty').value, note: document.getElementById('s-note').value };
+      if (!body.quantity || body.quantity < 1) return alert('Enter a valid quantity!');
+      const res = await fetch(`/api/products/${id}/stock`, { method: 'POST', headers: {'Content-Type':'application/json'}, body: JSON.stringify(body) });
+      const data = await res.json();
+      if (data.success) { closeModal('stockModal'); init(); }
+      else alert(data.message);
+    }
+
+    // Reset add modal on open
+    document.getElementById('addModal').addEventListener('click', function(e) {
+      if (e.target === this) closeModal('addModal');
+    });
+    document.getElementById('stockModal').addEventListener('click', function(e) {
+      if (e.target === this) closeModal('stockModal');
+    });
+    document.querySelector('[onclick="openModal(\'addModal\')"]').addEventListener('click', () => {
+      document.getElementById('edit-id').value = '';
+      document.getElementById('modal-title').textContent = 'Add Product';
+      ['f-name','f-sku','f-qty','f-min','f-price','f-unit','f-desc'].forEach(id => document.getElementById(id).value = '');
+      document.getElementById('f-cat').value = '';
+      document.getElementById('f-sup').value = '';
+    });
+
+    init();
+  </script>
+</body>
+</html>

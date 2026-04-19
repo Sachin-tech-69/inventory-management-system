@@ -1,0 +1,62 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Login – InvenTrack</title>
+  <link href="https://fonts.googleapis.com/css2?family=Syne:wght@700;800&family=DM+Sans:wght@400;500&display=swap" rel="stylesheet">
+  <style>
+    :root { --bg:#0d0f14; --surface:#151821; --border:#252a3a; --accent:#4f8ef7; --text:#e8eaf2; --text-muted:#7a819e; }
+    * { margin:0; padding:0; box-sizing:border-box; }
+    body { font-family:'DM Sans',sans-serif; background:var(--bg); color:var(--text); min-height:100vh; display:flex; align-items:center; justify-content:center; }
+    body::before { content:''; position:fixed; inset:0; background: radial-gradient(ellipse 60% 50% at 50% 0%, rgba(79,142,247,0.12), transparent); pointer-events:none; }
+    .box { background:var(--surface); border:1px solid var(--border); border-radius:16px; padding:40px; width:380px; max-width:95vw; }
+    .logo { font-family:'Syne',sans-serif; font-size:22px; font-weight:800; color:var(--accent); margin-bottom:6px; }
+    .sub { font-size:13px; color:var(--text-muted); margin-bottom:32px; }
+    label { display:block; font-size:12px; color:var(--text-muted); margin-bottom:6px; }
+    input {
+      width:100%; background:#1c2030; border:1px solid var(--border); border-radius:8px;
+      padding:11px 14px; color:var(--text); font-size:14px; font-family:'DM Sans',sans-serif;
+      margin-bottom:16px; transition:border 0.15s;
+    }
+    input:focus { outline:none; border-color:var(--accent); }
+    button {
+      width:100%; background:var(--accent); color:#fff; border:none; border-radius:8px;
+      padding:12px; font-size:14px; font-weight:600; cursor:pointer; font-family:'DM Sans',sans-serif;
+      transition:background 0.15s;
+    }
+    button:hover { background:#3a78e8; }
+    .error { font-size:13px; color:#f05a5a; margin-top:12px; display:none; }
+    .hint { font-size:11px; color:var(--text-muted); text-align:center; margin-top:16px; padding-top:16px; border-top:1px solid var(--border); }
+  </style>
+</head>
+<body>
+  <div class="box">
+    <div class="logo">📦 InvenTrack</div>
+    <div class="sub">Inventory & Stock Management System</div>
+    <label>Email Address</label>
+    <input type="email" id="email" placeholder="admin@inventory.com" value="admin@inventory.com">
+    <label>Password</label>
+    <input type="password" id="password" placeholder="Enter password" value="admin123">
+    <button onclick="login()">Sign In</button>
+    <div class="error" id="err"></div>
+    <div class="hint">Default: admin@inventory.com / admin123</div>
+  </div>
+  <script>
+    async function login() {
+      const email = document.getElementById('email').value;
+      const password = document.getElementById('password').value;
+      const err = document.getElementById('err');
+      const res = await fetch('/login', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ email, password })
+      });
+      const data = await res.json();
+      if (data.success) { window.location = '/dashboard'; }
+      else { err.style.display = 'block'; err.textContent = data.message; }
+    }
+    document.addEventListener('keydown', e => { if (e.key === 'Enter') login(); });
+  </script>
+</body>
+</html>
